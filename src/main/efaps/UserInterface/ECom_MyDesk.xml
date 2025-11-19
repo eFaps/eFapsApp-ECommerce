@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><!--
+
+    Copyright © 2003 - 2024 The eFaps Team (-)
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<ui-menu xmlns="http://www.efaps.org/xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.efaps.org/xsd http://www.efaps.org/xsd/eFaps_1.0.xsd">
+    <uuid>ca8a37b6-36a5-4f62-8eac-0f7addbc34cf</uuid>
+    <file-application>eFapsApp-ECommerce</file-application>
+    <definition>
+        <version-expression>(version==latest)</version-expression>
+        <name>ECom_MyDesk</name>
+        <target>
+         <trigger event="UI_ACCESSCHECK" method="configCheck" name="ECom_MyDesk.UI_ACCESSCHECK"
+            program="org.efaps.esjp.admin.access.AccessCheck4UI">
+                <property name="SystemConfig">ec518f5d-464b-498c-bf15-adbb33701917</property>
+                <property name="Attribute">org.efaps.ecommerce.Activate</property>
+            </trigger>
+        </target>
+        <property name="Target">content</property>
+        <property name="TargetShowCheckBoxes">true</property>
+        <property name="TargetMode">view</property>
+        <property name="TargetTableType">GridX</property>
+    </definition>
+</ui-menu>
