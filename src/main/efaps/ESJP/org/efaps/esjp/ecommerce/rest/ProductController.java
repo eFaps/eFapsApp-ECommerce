@@ -18,13 +18,6 @@ package org.efaps.esjp.ecommerce.rest;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
 import org.efaps.eql.EQL;
@@ -33,6 +26,13 @@ import org.efaps.esjp.ecommerce.rest.dto.PagedDto;
 import org.efaps.esjp.ecommerce.rest.dto.PaginationDto;
 import org.efaps.esjp.ecommerce.rest.dto.ProductDto;
 import org.efaps.util.EFapsException;
+
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 @EFapsUUID("61ef6b8c-ab1a-4aa1-ad47-33811396212c")
 @EFapsApplication("eFapsApp-ECommerce")
@@ -53,7 +53,8 @@ public class ProductController
         final var eval = EQL.builder().print()
                         .query(CIProducts.ProductAbstract)
                         .select()
-                        .attribute(CIProducts.ProductAbstract.Name, CIProducts.ProductAbstract.Description)
+                        .attribute(CIProducts.ProductAbstract.ID, CIProducts.ProductAbstract.Name,
+                                        CIProducts.ProductAbstract.Description)
                         .limit(limit)
                         .offset(offset)
                         .orderBy(CIProducts.ProductAbstract.ID)
@@ -80,6 +81,7 @@ public class ProductController
                         .build();
 
         final Response ret = Response.ok()
+                        .type(MediaType.APPLICATION_JSON)
                         .entity(dto)
                         .build();
         return ret;
