@@ -138,11 +138,6 @@
             <artifactId>efaps-app-humanresource</artifactId>
             <version>${efaps.app.dependencies}</version>
         </dependency>
-         <dependency>
-            <groupId>org.efaps.localizations</groupId>
-            <artifactId>efaps-localizations-ubicaciones</artifactId>
-            <version>${efaps.app.dependencies}</version>
-        </dependency>
         <dependency>
             <groupId>org.efaps</groupId>
             <artifactId>efaps-tests</artifactId>
