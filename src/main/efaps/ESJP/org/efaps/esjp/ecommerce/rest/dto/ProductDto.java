@@ -28,14 +28,21 @@ import jakarta.annotation.Generated;
 public class ProductDto
 {
 
+    private final String oid;
     private final String sku;
     private final String name;
 
     @Generated("SparkTools")
     private ProductDto(Builder builder)
     {
+        this.oid = builder.oid;
         this.sku = builder.sku;
         this.name = builder.name;
+    }
+
+    public String getOid()
+    {
+        return oid;
     }
 
     public String getSku()
@@ -58,11 +65,18 @@ public class ProductDto
     public static final class Builder
     {
 
+        private String oid;
         private String sku;
         private String name;
 
         private Builder()
         {
+        }
+
+        public Builder withOid(String oid)
+        {
+            this.oid = oid;
+            return this;
         }
 
         public Builder withSku(String sku)

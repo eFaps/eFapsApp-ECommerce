@@ -17,11 +17,17 @@ package org.efaps.esjp.ecommerce.rest;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
+import org.efaps.db.Instance;
 import org.efaps.eql.EQL;
+import org.efaps.eql.builder.Selectables;
+import org.efaps.esjp.ci.CIECom;
 import org.efaps.esjp.ci.CIProducts;
+import org.efaps.esjp.db.InstanceUtils;
 import org.efaps.esjp.ecommerce.rest.dto.PagedDto;
 import org.efaps.esjp.ecommerce.rest.dto.PaginationDto;
 import org.efaps.esjp.ecommerce.rest.dto.ProductDto;
@@ -44,14 +50,45 @@ public class ProductController
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response getProducts(@QueryParam("limit") final int limit,
-                                @QueryParam("page") final int page)
+                                @QueryParam("page") final int page,
+                                @QueryParam("categories") final Set<String> categoryOids)
         throws EFapsException
     {
         checkAccess();
         final var offset = (page - 1) * limit;
 
+        final var whereBldr = EQL.builder().where()
+                        .attribute(CIProducts.ProductAbstract.Active).eq("true");
+
+        if (CollectionUtils.isEmpty(categoryOids)) {
+
+            whereBldr.and()
+                            .attribute(CIProducts.ProductAbstract.ID).in(
+                                            EQL.builder()
+                                                            .nestedQuery(CIECom.Category2Product)
+                                                            .selectable(Selectables.attribute(
+                                                                            CIECom.Category2Product.ToLink)));
+
+        } else {
+            final var catInts = categoryOids.stream()
+                            .map(Instance::get)
+                            .filter(inst -> InstanceUtils.isKindOf(inst, CIECom.Category))
+                            .toList();
+
+            whereBldr.and()
+                            .attribute(CIProducts.ProductAbstract.ID).in(
+                                            EQL.builder()
+                                                            .nestedQuery(CIECom.Category2Product)
+                                                            .where()
+                                                            .attribute(CIECom.Category2Product.FromLink).in(catInts)
+                                                            .up()
+                                                            .selectable(Selectables.attribute(
+                                                                            CIECom.Category2Product.ToLink)));
+        }
+
         final var eval = EQL.builder().print()
                         .query(CIProducts.ProductAbstract)
+                        .where(whereBldr)
                         .select()
                         .attribute(CIProducts.ProductAbstract.ID, CIProducts.ProductAbstract.Name,
                                         CIProducts.ProductAbstract.Description)
@@ -60,12 +97,14 @@ public class ProductController
                         .orderBy(CIProducts.ProductAbstract.ID)
                         .evaluate();
 
-        final var countEval = EQL.builder().count(CIProducts.ProductAbstract).stmt()
+        final var countEval = EQL.builder().count(CIProducts.ProductAbstract)
+                        .where(whereBldr)
                         .evaluate();
 
         final List<ProductDto> products = new ArrayList<>();
         while (eval.next()) {
             products.add(ProductDto.builder()
+                            .withOid(eval.inst().getOid())
                             .withSku(eval.get(CIProducts.ProductAbstract.Name))
                             .withName(eval.get(CIProducts.ProductAbstract.Description))
                             .build());
