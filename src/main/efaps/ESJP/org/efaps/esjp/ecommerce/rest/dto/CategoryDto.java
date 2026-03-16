@@ -21,6 +21,7 @@ import java.util.List;
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import jakarta.annotation.Generated;
@@ -60,6 +61,7 @@ public class CategoryDto
         return label;
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public List<CategoryDto> getChildCategories()
     {
         return childCategories;
@@ -131,7 +133,9 @@ public class CategoryDto
 
         public CategoryDto build()
         {
-            withChildCategories(childBldrs.stream().map(Builder::build).toList());
+            if (!childBldrs.isEmpty()) {
+                withChildCategories(childBldrs.stream().map(Builder::build).toList());
+            }
             return new CategoryDto(this);
         }
     }

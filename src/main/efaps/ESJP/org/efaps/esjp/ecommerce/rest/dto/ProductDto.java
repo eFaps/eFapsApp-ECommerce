@@ -15,9 +15,12 @@
  */
 package org.efaps.esjp.ecommerce.rest.dto;
 
+import java.util.Set;
+
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import jakarta.annotation.Generated;
@@ -31,6 +34,7 @@ public class ProductDto
     private final String oid;
     private final String sku;
     private final String name;
+    private final Set<CategoryDto> categories;
 
     @Generated("SparkTools")
     private ProductDto(Builder builder)
@@ -38,6 +42,7 @@ public class ProductDto
         this.oid = builder.oid;
         this.sku = builder.sku;
         this.name = builder.name;
+        this.categories = builder.categories;
     }
 
     public String getOid()
@@ -55,6 +60,12 @@ public class ProductDto
         return name;
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public Set<CategoryDto> getCategories()
+    {
+        return categories;
+    }
+
     @Generated("SparkTools")
     public static Builder builder()
     {
@@ -68,6 +79,7 @@ public class ProductDto
         private String oid;
         private String sku;
         private String name;
+        private Set<CategoryDto> categories;
 
         private Builder()
         {
@@ -88,6 +100,12 @@ public class ProductDto
         public Builder withName(String name)
         {
             this.name = name;
+            return this;
+        }
+
+        public Builder withCategories(Set<CategoryDto> categories)
+        {
+            this.categories = categories;
             return this;
         }
 

@@ -16,6 +16,7 @@
 package org.efaps.esjp.ecommerce.rest;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -28,10 +29,14 @@ import org.efaps.eql.builder.Selectables;
 import org.efaps.esjp.ci.CIECom;
 import org.efaps.esjp.ci.CIProducts;
 import org.efaps.esjp.db.InstanceUtils;
+import org.efaps.esjp.ecommerce.rest.dto.CategoryDto;
 import org.efaps.esjp.ecommerce.rest.dto.PagedDto;
 import org.efaps.esjp.ecommerce.rest.dto.PaginationDto;
 import org.efaps.esjp.ecommerce.rest.dto.ProductDto;
+import org.efaps.esjp.ecommerce.rest.dto.ProductInclude;
 import org.efaps.util.EFapsException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -46,22 +51,24 @@ import jakarta.ws.rs.core.Response;
 public class ProductController
     extends AbstractController
 {
+    private static final Logger LOG = LoggerFactory.getLogger(ProductController.class);
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response getProducts(@QueryParam("limit") final int limit,
                                 @QueryParam("page") final int page,
+                                @QueryParam("include") final Set<ProductInclude> include,
                                 @QueryParam("categories") final Set<String> categoryOids)
         throws EFapsException
     {
         checkAccess();
         final var offset = (page - 1) * limit;
+        final var inclCategories = include != null && include.contains(ProductInclude.CATEGORIES);
 
         final var whereBldr = EQL.builder().where()
                         .attribute(CIProducts.ProductAbstract.Active).eq("true");
 
         if (CollectionUtils.isEmpty(categoryOids)) {
-
             whereBldr.and()
                             .attribute(CIProducts.ProductAbstract.ID).in(
                                             EQL.builder()
@@ -86,13 +93,23 @@ public class ProductController
                                                                             CIECom.Category2Product.ToLink)));
         }
 
-        final var eval = EQL.builder().print()
+        final var select = EQL.builder().print()
                         .query(CIProducts.ProductAbstract)
                         .where(whereBldr)
                         .select()
                         .attribute(CIProducts.ProductAbstract.ID, CIProducts.ProductAbstract.Name,
-                                        CIProducts.ProductAbstract.Description)
-                        .limit(limit)
+                                        CIProducts.ProductAbstract.Description);
+
+        if (inclCategories) {
+            select.linkfrom(CIECom.Category2Product.ToLink)
+                            .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.OID).as("catOid")
+                            .linkfrom(CIECom.Category2Product.ToLink)
+                            .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.Name).as("catName")
+                            .linkfrom(CIECom.Category2Product.ToLink)
+                            .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.Label).as("catLabel");
+        }
+
+        final var eval = select.limit(limit)
                         .offset(offset)
                         .orderBy(CIProducts.ProductAbstract.ID)
                         .evaluate();
@@ -103,10 +120,26 @@ public class ProductController
 
         final List<ProductDto> products = new ArrayList<>();
         while (eval.next()) {
+            Set<CategoryDto> categories = null;
+            if (inclCategories) {
+                categories = new HashSet<>();
+                final var catNames = eval.<List<String>>get("catName").iterator();
+                final var catLabels= eval.<List<String>>get("catLabel").iterator();
+                for (final String element : eval.<List<String>>get("catOid")) {
+                    categories.add(CategoryDto.builder()
+                                    .withOid(element)
+                                    .withName(catNames.next())
+                                    .withLabel(catLabels.next())
+                                    .withChildCategories(null)
+                                    .build());
+                }
+            }
+
             products.add(ProductDto.builder()
                             .withOid(eval.inst().getOid())
                             .withSku(eval.get(CIProducts.ProductAbstract.Name))
                             .withName(eval.get(CIProducts.ProductAbstract.Description))
+                            .withCategories(categories)
                             .build());
         }
 
