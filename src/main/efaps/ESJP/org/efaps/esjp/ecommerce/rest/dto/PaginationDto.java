@@ -15,6 +15,8 @@
  */
 package org.efaps.esjp.ecommerce.rest.dto;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
 
@@ -53,6 +55,12 @@ public class PaginationDto
     public int getTotal()
     {
         return total;
+    }
+
+    @Override
+    public String toString()
+    {
+        return ToStringBuilder.reflectionToString(this, ToStringStyle.JSON_STYLE);
     }
 
     @Generated("SparkTools")

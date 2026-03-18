@@ -17,6 +17,8 @@ package org.efaps.esjp.ecommerce.rest.dto;
 
 import java.util.Set;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
 
@@ -35,6 +37,7 @@ public class ProductDto
     private final String sku;
     private final String name;
     private final Set<CategoryDto> categories;
+    private final Set<ImageDto> images;
 
     @Generated("SparkTools")
     private ProductDto(Builder builder)
@@ -43,6 +46,7 @@ public class ProductDto
         this.sku = builder.sku;
         this.name = builder.name;
         this.categories = builder.categories;
+        this.images = builder.images;
     }
 
     public String getOid()
@@ -66,6 +70,18 @@ public class ProductDto
         return categories;
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public Set<ImageDto> getImages()
+    {
+        return images;
+    }
+
+    @Override
+    public String toString()
+    {
+        return ToStringBuilder.reflectionToString(this, ToStringStyle.JSON_STYLE);
+    }
+
     @Generated("SparkTools")
     public static Builder builder()
     {
@@ -80,6 +96,7 @@ public class ProductDto
         private String sku;
         private String name;
         private Set<CategoryDto> categories;
+        private Set<ImageDto> images;
 
         private Builder()
         {
@@ -106,6 +123,12 @@ public class ProductDto
         public Builder withCategories(Set<CategoryDto> categories)
         {
             this.categories = categories;
+            return this;
+        }
+
+        public Builder withImages(Set<ImageDto> images)
+        {
+            this.images = images;
             return this;
         }
 

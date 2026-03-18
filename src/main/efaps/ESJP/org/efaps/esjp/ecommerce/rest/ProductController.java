@@ -30,6 +30,8 @@ import org.efaps.esjp.ci.CIECom;
 import org.efaps.esjp.ci.CIProducts;
 import org.efaps.esjp.db.InstanceUtils;
 import org.efaps.esjp.ecommerce.rest.dto.CategoryDto;
+import org.efaps.esjp.ecommerce.rest.dto.ImageDto;
+import org.efaps.esjp.ecommerce.rest.dto.ImageType;
 import org.efaps.esjp.ecommerce.rest.dto.PagedDto;
 import org.efaps.esjp.ecommerce.rest.dto.PaginationDto;
 import org.efaps.esjp.ecommerce.rest.dto.ProductDto;
@@ -51,6 +53,7 @@ import jakarta.ws.rs.core.Response;
 public class ProductController
     extends AbstractController
 {
+
     private static final Logger LOG = LoggerFactory.getLogger(ProductController.class);
 
     @GET
@@ -62,8 +65,11 @@ public class ProductController
         throws EFapsException
     {
         checkAccess();
+        LOG.info("Got request for products with {}", include);
+
         final var offset = (page - 1) * limit;
         final var inclCategories = include != null && include.contains(ProductInclude.CATEGORIES);
+        final var inclImages = include != null && include.contains(ProductInclude.IMAGES);
 
         final var whereBldr = EQL.builder().where()
                         .attribute(CIProducts.ProductAbstract.Active).eq("true");
@@ -109,6 +115,13 @@ public class ProductController
                             .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.Label).as("catLabel");
         }
 
+        if (inclImages) {
+            select.linkfrom(CIProducts.Product2ImageAbstract.ProductAbstractLink)
+                            .attribute(CIProducts.Product2ImageAbstract.Caption).as("imageCaption")
+                            .linkfrom(CIProducts.Product2ImageAbstract.ProductAbstractLink)
+                            .linkto(CIProducts.Product2ImageAbstract.ImageAbstractLink).instance().as("imageInst");
+        }
+
         final var eval = select.limit(limit)
                         .offset(offset)
                         .orderBy(CIProducts.ProductAbstract.ID)
@@ -124,7 +137,7 @@ public class ProductController
             if (inclCategories) {
                 categories = new HashSet<>();
                 final var catNames = eval.<List<String>>get("catName").iterator();
-                final var catLabels= eval.<List<String>>get("catLabel").iterator();
+                final var catLabels = eval.<List<String>>get("catLabel").iterator();
                 for (final String element : eval.<List<String>>get("catOid")) {
                     categories.add(CategoryDto.builder()
                                     .withOid(element)
@@ -134,12 +147,35 @@ public class ProductController
                                     .build());
                 }
             }
+            Set<ImageDto> images = null;
+            if (inclImages) {
+                images = new HashSet<>();
+                final var imageCaptions = eval.<List<String>>get("imageCaption").iterator();
+                for (final var imageInst : eval.<List<Instance>>get("imageInst")) {
+                    if (InstanceUtils.isValid(imageInst)) {
+                        ImageType imageType;
+                        if (InstanceUtils.isType(imageInst, CIProducts.ImageThumbnail)) {
+                            imageType = ImageType.THUMBNAIL;
+                        } else if (InstanceUtils.isType(imageInst, CIProducts.ImageOriginal)) {
+                            imageType = ImageType.ORIGINAL;
+                        } else {
+                            imageType = ImageType.OTHER;
+                        }
+                        images.add(ImageDto.builder()
+                                        .withOid(imageInst == null ? null : imageInst.getOid())
+                                        .withType(imageType)
+                                        .withCaption(imageCaptions.next())
+                                        .build());
+                    }
+                }
+            }
 
             products.add(ProductDto.builder()
                             .withOid(eval.inst().getOid())
                             .withSku(eval.get(CIProducts.ProductAbstract.Name))
                             .withName(eval.get(CIProducts.ProductAbstract.Description))
                             .withCategories(categories)
+                            .withImages(images)
                             .build());
         }
 

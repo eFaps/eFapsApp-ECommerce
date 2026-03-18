@@ -22,5 +22,6 @@ import org.efaps.admin.program.esjp.EFapsUUID;
 @EFapsApplication("eFapsApp-ECommerce")
 public enum ProductInclude
 {
-    CATEGORIES
+    CATEGORIES,
+    IMAGES
 }

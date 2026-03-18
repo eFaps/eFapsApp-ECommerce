@@ -18,6 +18,8 @@ package org.efaps.esjp.ecommerce.rest.dto;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
 
@@ -65,6 +67,12 @@ public class CategoryDto
     public List<CategoryDto> getChildCategories()
     {
         return childCategories;
+    }
+
+    @Override
+    public String toString()
+    {
+        return ToStringBuilder.reflectionToString(this, ToStringStyle.JSON_STYLE);
     }
 
     @Generated("SparkTools")
