@@ -23,5 +23,6 @@ import org.efaps.admin.program.esjp.EFapsUUID;
 public enum ProductInclude
 {
     CATEGORIES,
-    IMAGES
+    IMAGES,
+    PRICES
 }

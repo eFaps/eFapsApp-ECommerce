@@ -15,6 +15,7 @@
  */
 package org.efaps.esjp.ecommerce.rest.dto;
 
+import java.math.BigDecimal;
 import java.util.Set;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -36,6 +37,8 @@ public class ProductDto
     private final String oid;
     private final String sku;
     private final String name;
+    private final BigDecimal netUnitPrice;
+    private final BigDecimal crossUnitPrice;
     private final Set<CategoryDto> categories;
     private final Set<ImageDto> images;
 
@@ -45,6 +48,8 @@ public class ProductDto
         this.oid = builder.oid;
         this.sku = builder.sku;
         this.name = builder.name;
+        this.netUnitPrice = builder.netUnitPrice;
+        this.crossUnitPrice = builder.crossUnitPrice;
         this.categories = builder.categories;
         this.images = builder.images;
     }
@@ -62,6 +67,18 @@ public class ProductDto
     public String getName()
     {
         return name;
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public BigDecimal getNetUnitPrice()
+    {
+        return netUnitPrice;
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public BigDecimal getCrossUnitPrice()
+    {
+        return crossUnitPrice;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -95,6 +112,8 @@ public class ProductDto
         private String oid;
         private String sku;
         private String name;
+        private BigDecimal netUnitPrice;
+        private BigDecimal crossUnitPrice;
         private Set<CategoryDto> categories;
         private Set<ImageDto> images;
 
@@ -119,6 +138,19 @@ public class ProductDto
             this.name = name;
             return this;
         }
+
+        public Builder withNetUnitPrice(BigDecimal netUnitPrice)
+        {
+            this.netUnitPrice = netUnitPrice;
+            return this;
+        }
+
+        public Builder withCrossUnitPrice(BigDecimal crossUnitPrice)
+        {
+            this.crossUnitPrice = crossUnitPrice;
+            return this;
+        }
+
 
         public Builder withCategories(Set<CategoryDto> categories)
         {

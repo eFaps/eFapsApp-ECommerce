@@ -15,12 +15,14 @@
  */
 package org.efaps.esjp.ecommerce.rest;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.efaps.admin.event.Parameter;
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
 import org.efaps.db.Instance;
@@ -28,6 +30,8 @@ import org.efaps.eql.EQL;
 import org.efaps.eql.builder.Selectables;
 import org.efaps.esjp.ci.CIECom;
 import org.efaps.esjp.ci.CIProducts;
+import org.efaps.esjp.ci.CISales;
+import org.efaps.esjp.common.parameter.ParameterUtil;
 import org.efaps.esjp.db.InstanceUtils;
 import org.efaps.esjp.ecommerce.rest.dto.CategoryDto;
 import org.efaps.esjp.ecommerce.rest.dto.ImageDto;
@@ -35,7 +39,10 @@ import org.efaps.esjp.ecommerce.rest.dto.ImageType;
 import org.efaps.esjp.ecommerce.rest.dto.PagedDto;
 import org.efaps.esjp.ecommerce.rest.dto.PaginationDto;
 import org.efaps.esjp.ecommerce.rest.dto.ProductDto;
+import org.efaps.esjp.ecommerce.rest.dto.ProductDto.Builder;
 import org.efaps.esjp.ecommerce.rest.dto.ProductInclude;
+import org.efaps.esjp.sales.Calculator;
+import org.efaps.esjp.sales.ICalculatorConfig;
 import org.efaps.util.EFapsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +77,7 @@ public class ProductController
         final var offset = (page - 1) * limit;
         final var inclCategories = include != null && include.contains(ProductInclude.CATEGORIES);
         final var inclImages = include != null && include.contains(ProductInclude.IMAGES);
+        final var inclPrices = include != null && include.contains(ProductInclude.PRICES);
 
         final var whereBldr = EQL.builder().where()
                         .attribute(CIProducts.ProductAbstract.Active).eq("true");
@@ -170,7 +178,11 @@ public class ProductController
                 }
             }
 
-            products.add(ProductDto.builder()
+            final var dtoBuilder = ProductDto.builder();
+            if (inclPrices) {
+                evalPrice(dtoBuilder, eval.inst());
+            }
+            products.add(dtoBuilder
                             .withOid(eval.inst().getOid())
                             .withSku(eval.get(CIProducts.ProductAbstract.Name))
                             .withName(eval.get(CIProducts.ProductAbstract.Description))
@@ -194,4 +206,44 @@ public class ProductController
                         .build();
         return ret;
     }
+
+    public void evalPrice(final Builder dtoBuilder,
+                          final Instance productInstance)
+        throws EFapsException
+    {
+        final var parameter = ParameterUtil.instance();
+        final var calculator = new Calculator(parameter, null, productInstance, BigDecimal.ONE,
+                        null, BigDecimal.ZERO, true, getCalcConf());
+        dtoBuilder.withNetUnitPrice(calculator.getNetUnitPrice())
+                        .withCrossUnitPrice(calculator.getCrossUnitPrice());
+    }
+
+    protected ICalculatorConfig getCalcConf()
+    {
+        return new ICalculatorConfig()
+        {
+
+            @Override
+            public String getSysConfKey4Doc(final Parameter _parameter)
+                throws EFapsException
+            {
+                return CISales.Receipt.getType().getName();
+            }
+
+            @Override
+            public String getSysConfKey4Pos(final Parameter _parameter)
+                throws EFapsException
+            {
+                return "DefaultPosition";
+            }
+
+            @Override
+            public boolean priceFromUIisNet(final Parameter _parameter)
+                throws EFapsException
+            {
+                return true;
+            }
+        };
+    }
+
 }
