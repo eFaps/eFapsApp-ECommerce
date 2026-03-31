@@ -21,12 +21,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.ws.rs.PathParam;
+
 import org.apache.commons.collections4.CollectionUtils;
 import org.efaps.admin.event.Parameter;
 import org.efaps.admin.program.esjp.EFapsApplication;
 import org.efaps.admin.program.esjp.EFapsUUID;
 import org.efaps.db.Instance;
+import org.efaps.db.stmt.selection.Evaluator;
 import org.efaps.eql.EQL;
+import org.efaps.eql.builder.Print;
 import org.efaps.eql.builder.Selectables;
 import org.efaps.esjp.ci.CIECom;
 import org.efaps.esjp.ci.CIProducts;
@@ -75,10 +79,6 @@ public class ProductController
         LOG.info("Got request for products with {}", include);
 
         final var offset = (page - 1) * limit;
-        final var inclCategories = include != null && include.contains(ProductInclude.CATEGORIES);
-        final var inclImages = include != null && include.contains(ProductInclude.IMAGES);
-        final var inclPrices = include != null && include.contains(ProductInclude.PRICES);
-
         final var whereBldr = EQL.builder().where()
                         .attribute(CIProducts.ProductAbstract.Active).eq("true");
 
@@ -107,30 +107,13 @@ public class ProductController
                                                                             CIECom.Category2Product.ToLink)));
         }
 
-        final var select = EQL.builder().print()
+        final var print = EQL.builder().print()
                         .query(CIProducts.ProductAbstract)
                         .where(whereBldr)
-                        .select()
-                        .attribute(CIProducts.ProductAbstract.ID, CIProducts.ProductAbstract.Name,
-                                        CIProducts.ProductAbstract.Description);
+                        .select();
+        evalSelect(print, include);
 
-        if (inclCategories) {
-            select.linkfrom(CIECom.Category2Product.ToLink)
-                            .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.OID).as("catOid")
-                            .linkfrom(CIECom.Category2Product.ToLink)
-                            .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.Name).as("catName")
-                            .linkfrom(CIECom.Category2Product.ToLink)
-                            .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.Label).as("catLabel");
-        }
-
-        if (inclImages) {
-            select.linkfrom(CIProducts.Product2ImageAbstract.ProductAbstractLink)
-                            .attribute(CIProducts.Product2ImageAbstract.Caption).as("imageCaption")
-                            .linkfrom(CIProducts.Product2ImageAbstract.ProductAbstractLink)
-                            .linkto(CIProducts.Product2ImageAbstract.ImageAbstractLink).instance().as("imageInst");
-        }
-
-        final var eval = select.limit(limit)
+        final var eval = print.limit(limit)
                         .offset(offset)
                         .orderBy(CIProducts.ProductAbstract.ID)
                         .evaluate();
@@ -141,54 +124,7 @@ public class ProductController
 
         final List<ProductDto> products = new ArrayList<>();
         while (eval.next()) {
-            Set<CategoryDto> categories = null;
-            if (inclCategories) {
-                categories = new HashSet<>();
-                final var catNames = eval.<List<String>>get("catName").iterator();
-                final var catLabels = eval.<List<String>>get("catLabel").iterator();
-                for (final String element : eval.<List<String>>get("catOid")) {
-                    categories.add(CategoryDto.builder()
-                                    .withOid(element)
-                                    .withName(catNames.next())
-                                    .withLabel(catLabels.next())
-                                    .withChildCategories(null)
-                                    .build());
-                }
-            }
-            Set<ImageDto> images = null;
-            if (inclImages) {
-                images = new HashSet<>();
-                final var imageCaptions = eval.<List<String>>get("imageCaption").iterator();
-                for (final var imageInst : eval.<List<Instance>>get("imageInst")) {
-                    if (InstanceUtils.isValid(imageInst)) {
-                        ImageType imageType;
-                        if (InstanceUtils.isType(imageInst, CIProducts.ImageThumbnail)) {
-                            imageType = ImageType.THUMBNAIL;
-                        } else if (InstanceUtils.isType(imageInst, CIProducts.ImageOriginal)) {
-                            imageType = ImageType.ORIGINAL;
-                        } else {
-                            imageType = ImageType.OTHER;
-                        }
-                        images.add(ImageDto.builder()
-                                        .withOid(imageInst == null ? null : imageInst.getOid())
-                                        .withType(imageType)
-                                        .withCaption(imageCaptions.next())
-                                        .build());
-                    }
-                }
-            }
-
-            final var dtoBuilder = ProductDto.builder();
-            if (inclPrices) {
-                evalPrice(dtoBuilder, eval.inst());
-            }
-            products.add(dtoBuilder
-                            .withOid(eval.inst().getOid())
-                            .withSku(eval.get(CIProducts.ProductAbstract.Name))
-                            .withName(eval.get(CIProducts.ProductAbstract.Description))
-                            .withCategories(categories)
-                            .withImages(images)
-                            .build());
+            products.add(toDto(eval, include));
         }
 
         final var dto = PagedDto.<ProductDto>builder()
@@ -207,8 +143,113 @@ public class ProductController
         return ret;
     }
 
-    public void evalPrice(final Builder dtoBuilder,
-                          final Instance productInstance)
+    @GET
+    @Path("{productOid}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getProduct(@PathParam("productOid") final String productOid,
+                               @QueryParam("include") final Set<ProductInclude> include)
+        throws EFapsException
+    {
+        checkAccess();
+        LOG.info("Got request for product {} with {}", productOid, include);
+        ProductDto dto = null;
+        if (InstanceUtils.isKindOf(Instance.get(productOid), CIProducts.ProductAbstract)) {
+            final var print = EQL.builder().print(productOid);
+            evalSelect(print, include);
+            final var eval = print.evaluate();
+            eval.next();
+            dto = toDto(eval, include);
+        }
+        return Response.ok()
+                        .type(MediaType.APPLICATION_JSON)
+                        .entity(dto)
+                        .build();
+    }
+
+    private ProductDto toDto(final Evaluator eval,
+                             final Set<ProductInclude> include)
+        throws EFapsException
+    {
+
+        final var dtoBuilder = ProductDto.builder();
+        if (include != null) {
+            if (include.contains(ProductInclude.CATEGORIES)) {
+                final Set<CategoryDto> categories = new HashSet<>();
+                final var catNames = eval.<List<String>>get("catName").iterator();
+                final var catLabels = eval.<List<String>>get("catLabel").iterator();
+                for (final String element : eval.<List<String>>get("catOid")) {
+                    categories.add(CategoryDto.builder()
+                                    .withOid(element)
+                                    .withName(catNames.next())
+                                    .withLabel(catLabels.next())
+                                    .withChildCategories(null)
+                                    .build());
+                }
+                dtoBuilder.withCategories(categories);
+            }
+            if (include.contains(ProductInclude.IMAGES)) {
+                final Set<ImageDto> images = new HashSet<>();
+                final var imageCaptions = eval.<List<String>>get("imageCaption").iterator();
+                for (final var imageInst : eval.<List<Instance>>get("imageInst")) {
+                    if (InstanceUtils.isValid(imageInst)) {
+                        ImageType imageType;
+                        if (InstanceUtils.isType(imageInst, CIProducts.ImageThumbnail)) {
+                            imageType = ImageType.THUMBNAIL;
+                        } else if (InstanceUtils.isType(imageInst, CIProducts.ImageOriginal)) {
+                            imageType = ImageType.ORIGINAL;
+                        } else {
+                            imageType = ImageType.OTHER;
+                        }
+                        images.add(ImageDto.builder()
+                                        .withOid(imageInst == null ? null : imageInst.getOid())
+                                        .withType(imageType)
+                                        .withCaption(imageCaptions.next())
+                                        .build());
+                    }
+                }
+                dtoBuilder.withImages(images);
+            }
+
+            if (include.contains(ProductInclude.PRICES)) {
+                evalPrice(dtoBuilder, eval.inst());
+            }
+        }
+        return dtoBuilder
+                        .withOid(eval.inst().getOid())
+                        .withSku(eval.get(CIProducts.ProductAbstract.Name))
+                        .withName(eval.get(CIProducts.ProductAbstract.Description))
+                        .build();
+    }
+
+    private void evalSelect(final Print print,
+                            final Set<ProductInclude> include)
+    {
+
+        print.attribute(CIProducts.ProductAbstract.ID, CIProducts.ProductAbstract.Name,
+                        CIProducts.ProductAbstract.Description);
+
+        if (include != null) {
+            if (include.contains(ProductInclude.CATEGORIES)) {
+                print.linkfrom(CIECom.Category2Product.ToLink)
+                                .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.OID).as("catOid")
+                                .linkfrom(CIECom.Category2Product.ToLink)
+                                .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.Name).as("catName")
+                                .linkfrom(CIECom.Category2Product.ToLink)
+                                .linkto(CIECom.Category2Product.FromLink).attribute(CIECom.Category.Label)
+                                .as("catLabel");
+            }
+
+            if (include.contains(ProductInclude.IMAGES)) {
+                print.linkfrom(CIProducts.Product2ImageAbstract.ProductAbstractLink)
+                                .attribute(CIProducts.Product2ImageAbstract.Caption).as("imageCaption")
+                                .linkfrom(CIProducts.Product2ImageAbstract.ProductAbstractLink)
+                                .linkto(CIProducts.Product2ImageAbstract.ImageAbstractLink).instance().as("imageInst");
+            }
+        }
+    }
+
+    private void evalPrice(final Builder dtoBuilder,
+                           final Instance productInstance)
         throws EFapsException
     {
         final var parameter = ParameterUtil.instance();
